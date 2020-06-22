@@ -12,53 +12,46 @@ namespace EffectiveBoundsTestsUWP
     public class UnitTest1
     {
         [TestMethod]
-        public async Task Not_Raised_When_Added_To_Tree()
+        public async Task EffectiveViewportChanged_Not_Raised_When_Control_Added_To_Tree()
         {
             await RunOnUIThread.Execute(() =>
             {
                 var frame = CreateFrame();
-                var button = new Button();
+                var canvas = new Canvas();
                 var raised = 0;
 
-                button.EffectiveViewportChanged += (s, e) =>
+                canvas.EffectiveViewportChanged += (s, e) =>
                 {
                     ++raised;
                 };
 
-                frame.Content = button;
+                frame.Content = canvas;
 
                 Assert.AreEqual(0, raised);
             });
         }
 
         [TestMethod]
-        public async Task Raised_Before_LayoutUpdated()
+        public async Task EffectiveViewportChanged_Raised_Before_LayoutUpdated()
         {
             await RunOnUIThread.ExecuteAsync(async () =>
             {
                 var frame = CreateFrame();
-                var button = new Button { HorizontalAlignment = HorizontalAlignment.Center };
+                var canvas = new Canvas();
                 var tcs = new TaskCompletionSource<object>();
                 var raised = 0;
 
-                button.LayoutUpdated += (s, e) =>
+                canvas.LayoutUpdated += (s, e) =>
                 {
                     tcs.SetResult(null);
                 };
 
-                button.EffectiveViewportChanged += (s, e) =>
+                canvas.EffectiveViewportChanged += (s, e) =>
                 {
-                    Assert.AreEqual(
-                        new Rect(
-                            -button.ActualOffset.X,
-                            -button.ActualOffset.Y,
-                            frame.ActualSize.X,
-                            frame.ActualSize.Y),
-                        e.EffectiveViewport);
                     ++raised;
                 };
 
-                frame.Content = button;
+                frame.Content = canvas;
 
                 await tcs.Task;
                 Assert.AreEqual(1, raised);
@@ -71,24 +64,97 @@ namespace EffectiveBoundsTestsUWP
             await RunOnUIThread.ExecuteAsync(async () =>
             {
                 var frame = CreateFrame();
-                var button = new TestButton { HorizontalAlignment = HorizontalAlignment.Center };
+                var canvas = new TestCanvas();
                 var tcs = new TaskCompletionSource<object>();
                 var raised = 0;
 
-                button.LayoutUpdated += (s, e) =>
+                canvas.LayoutUpdated += (s, e) =>
                 {
-                    Assert.AreEqual(2, button.MeasureCount);
-                    Assert.AreEqual(2, button.ArrangeCount);
+                    Assert.AreEqual(2, canvas.MeasureCount);
+                    Assert.AreEqual(2, canvas.ArrangeCount);
                     tcs.SetResult(null);
                 };
 
-                button.EffectiveViewportChanged += (s, e) =>
+                canvas.EffectiveViewportChanged += (s, e) =>
                 {
-                    button.InvalidateMeasure();
+                    canvas.InvalidateMeasure();
                     ++raised;
                 };
 
-                frame.Content = button;
+                frame.Content = canvas;
+
+                await tcs.Task;
+                Assert.AreEqual(1, raised);
+            });
+        }
+
+        [TestMethod]
+        public async Task Viewport_Extends_Beyond_Centered_Control()
+        {
+            await RunOnUIThread.ExecuteAsync(async () =>
+            {
+                var frame = CreateFrame();
+                var canvas = new Canvas
+                {
+                    Width = 52,
+                    Height = 52,
+                };
+                var tcs = new TaskCompletionSource<object>();
+                var raised = 0;
+
+                canvas.LayoutUpdated += (s, e) =>
+                {
+                    tcs.SetResult(null);
+                };
+
+                canvas.EffectiveViewportChanged += (s, e) =>
+                {
+                    Assert.AreEqual(new Rect(-574, -424, 1200, 900), e.EffectiveViewport);
+                    ++raised;
+                };
+
+                frame.Content = canvas;
+
+                await tcs.Task;
+                Assert.AreEqual(1, raised);
+            });
+        }
+
+
+        [TestMethod]
+        public async Task Viewport_Extends_Beyond_Nested_Centered_Control()
+        {
+            await RunOnUIThread.ExecuteAsync(async () =>
+            {
+                var frame = CreateFrame();
+                var canvas = new Canvas
+                {
+                    Width = 52,
+                    Height = 52,
+                };
+                
+                var outer = new Border
+                {
+                    Width = 100,
+                    Height = 100,
+                    Child = canvas,
+                };
+                
+                var tcs = new TaskCompletionSource<object>();
+                var raised = 0;
+
+                canvas.LayoutUpdated += (s, e) =>
+                {
+                    tcs.SetResult(null);
+                };
+
+                canvas.EffectiveViewportChanged += (s, e) =>
+                {
+                    Assert.AreEqual(new Rect(-574, -424, 1200, 900), e.EffectiveViewport);
+                    ++raised;
+                };
+
+                frame.Content = outer;
 
                 await tcs.Task;
                 Assert.AreEqual(1, raised);
@@ -102,7 +168,7 @@ namespace EffectiveBoundsTestsUWP
             return frame;
         }
 
-        private class TestButton : Button
+        private class TestCanvas : Canvas
         {
             public int MeasureCount { get; private set; }
             public int ArrangeCount { get; private set; }
