@@ -14,9 +14,9 @@ namespace EffectiveBoundsTestsUWP
         [TestMethod]
         public async Task EffectiveViewportChanged_Not_Raised_When_Control_Added_To_Tree()
         {
-            await RunOnUIThread.Execute(() =>
+            await RunOnUIThread.Execute(async () =>
             {
-                var frame = CreateFrame();
+                var frame = GetFrame();
                 var canvas = new Canvas();
                 var raised = 0;
 
@@ -34,9 +34,9 @@ namespace EffectiveBoundsTestsUWP
         [TestMethod]
         public async Task EffectiveViewportChanged_Raised_Before_LayoutUpdated()
         {
-            await RunOnUIThread.ExecuteAsync(async () =>
+            await RunOnUIThread.Execute(async () =>
             {
-                var frame = CreateFrame();
+                var frame = GetFrame();
                 var canvas = new Canvas();
                 var tcs = new TaskCompletionSource<object>();
                 var raised = 0;
@@ -61,9 +61,9 @@ namespace EffectiveBoundsTestsUWP
         [TestMethod]
         public async Task Invalidating_In_Handler_Causes_Layout_To_Be_Rerun_Before_LayoutUpdated()
         {
-            await RunOnUIThread.ExecuteAsync(async () =>
+            await RunOnUIThread.Execute(async () =>
             {
-                var frame = CreateFrame();
+                var frame = GetFrame();
                 var canvas = new TestCanvas();
                 var tcs = new TaskCompletionSource<object>();
                 var raised = 0;
@@ -91,9 +91,9 @@ namespace EffectiveBoundsTestsUWP
         [TestMethod]
         public async Task Viewport_Extends_Beyond_Centered_Control()
         {
-            await RunOnUIThread.ExecuteAsync(async () =>
+            await RunOnUIThread.Execute(async () =>
             {
-                var frame = CreateFrame();
+                var frame = GetFrame();
                 var canvas = new Canvas
                 {
                     Width = 52,
@@ -123,22 +123,22 @@ namespace EffectiveBoundsTestsUWP
         [TestMethod]
         public async Task Viewport_Extends_Beyond_Nested_Centered_Control()
         {
-            await RunOnUIThread.ExecuteAsync(async () =>
+            await RunOnUIThread.Execute(async () =>
             {
-                var frame = CreateFrame();
+                var frame = GetFrame();
                 var canvas = new Canvas
                 {
                     Width = 52,
                     Height = 52,
                 };
-                
+
                 var outer = new Border
                 {
                     Width = 100,
                     Height = 100,
                     Child = canvas,
                 };
-                
+
                 var tcs = new TaskCompletionSource<object>();
                 var raised = 0;
 
@@ -163,9 +163,9 @@ namespace EffectiveBoundsTestsUWP
         [TestMethod]
         public async Task ScrollViewer_Determines_EffectiveViewport()
         {
-            await RunOnUIThread.ExecuteAsync(async () =>
+            await RunOnUIThread.Execute(async () =>
             {
-                var frame = CreateFrame();
+                var frame = GetFrame();
                 var canvas = new Canvas
                 {
                     Width = 200,
@@ -184,7 +184,7 @@ namespace EffectiveBoundsTestsUWP
 
                 canvas.LayoutUpdated += (s, e) =>
                 {
-                    tcs.SetResult(null);
+                    tcs.TrySetResult(null);
                 };
 
                 canvas.EffectiveViewportChanged += (s, e) =>
@@ -203,9 +203,9 @@ namespace EffectiveBoundsTestsUWP
         [TestMethod]
         public async Task Scrolled_ScrollViewer_Determines_EffectiveViewport()
         {
-            await RunOnUIThread.ExecuteAsync(async () =>
+            await RunOnUIThread.Execute(async () =>
             {
-                var frame = CreateFrame();
+                var frame = GetFrame();
                 var canvas = new Canvas
                 {
                     Width = 200,
@@ -224,13 +224,19 @@ namespace EffectiveBoundsTestsUWP
 
                 canvas.LayoutUpdated += (s, e) =>
                 {
-                    tcs.SetResult(null);
+                    if (raised > 0)
+                    {
+                        tcs.TrySetResult(null);
+                    }
                 };
 
                 canvas.EffectiveViewportChanged += (s, e) =>
                 {
-                    Assert.AreEqual(new Rect(0, -10, 100, 100), e.EffectiveViewport);
-                    ++raised;
+                    if (outer.VerticalOffset == 10)
+                    {
+                        Assert.AreEqual(new Rect(0, -10, 100, 100), e.EffectiveViewport);
+                        ++raised;
+                    }
                 };
 
                 frame.Content = outer;
@@ -241,12 +247,7 @@ namespace EffectiveBoundsTestsUWP
             });
         }
 
-        private Frame CreateFrame()
-        {
-            var frame = new Frame();
-            Window.Current.Content = frame;
-            return frame;
-        }
+        private Frame GetFrame() => Window.Current.Content as Frame;
 
         private class TestCanvas : Canvas
         {
