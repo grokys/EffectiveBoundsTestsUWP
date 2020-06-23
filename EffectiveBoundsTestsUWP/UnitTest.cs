@@ -120,7 +120,6 @@ namespace EffectiveBoundsTestsUWP
             });
         }
 
-
         [TestMethod]
         public async Task Viewport_Extends_Beyond_Nested_Centered_Control()
         {
@@ -155,6 +154,87 @@ namespace EffectiveBoundsTestsUWP
                 };
 
                 frame.Content = outer;
+
+                await tcs.Task;
+                Assert.AreEqual(1, raised);
+            });
+        }
+
+        [TestMethod]
+        public async Task ScrollViewer_Determines_EffectiveViewport()
+        {
+            await RunOnUIThread.ExecuteAsync(async () =>
+            {
+                var frame = CreateFrame();
+                var canvas = new Canvas
+                {
+                    Width = 200,
+                    Height = 200,
+                };
+
+                var outer = new ScrollViewer
+                {
+                    Width = 100,
+                    Height = 100,
+                    Content = canvas,
+                };
+
+                var tcs = new TaskCompletionSource<object>();
+                var raised = 0;
+
+                canvas.LayoutUpdated += (s, e) =>
+                {
+                    tcs.SetResult(null);
+                };
+
+                canvas.EffectiveViewportChanged += (s, e) =>
+                {
+                    Assert.AreEqual(new Rect(0, 0, 100, 100), e.EffectiveViewport);
+                    ++raised;
+                };
+
+                frame.Content = outer;
+
+                await tcs.Task;
+                Assert.AreEqual(1, raised);
+            });
+        }
+
+        [TestMethod]
+        public async Task Scrolled_ScrollViewer_Determines_EffectiveViewport()
+        {
+            await RunOnUIThread.ExecuteAsync(async () =>
+            {
+                var frame = CreateFrame();
+                var canvas = new Canvas
+                {
+                    Width = 200,
+                    Height = 200,
+                };
+
+                var outer = new ScrollViewer
+                {
+                    Width = 100,
+                    Height = 100,
+                    Content = canvas,
+                };
+
+                var tcs = new TaskCompletionSource<object>();
+                var raised = 0;
+
+                canvas.LayoutUpdated += (s, e) =>
+                {
+                    tcs.SetResult(null);
+                };
+
+                canvas.EffectiveViewportChanged += (s, e) =>
+                {
+                    Assert.AreEqual(new Rect(0, -10, 100, 100), e.EffectiveViewport);
+                    ++raised;
+                };
+
+                frame.Content = outer;
+                outer.ChangeView(null, 10, null);
 
                 await tcs.Task;
                 Assert.AreEqual(1, raised);
