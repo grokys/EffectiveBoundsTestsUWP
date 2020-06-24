@@ -189,24 +189,14 @@ namespace EffectiveBoundsTestsUWP
 
                 root.Content = scroller;
 
-                // Wait for everything to be laid out initially.
                 await ExecuteInitialLayoutPass(root);
-
-                target.EffectiveViewportChanged += (s, e) =>
-                {
-                    if (e.EffectiveViewport == new Rect(0, 10, 100, 100))
-                    {
-                        ++raised;
-                    }
-                };
-
-                // Scroll and wait a while for the UI to update.
                 scroller.ChangeView(null, 10, null);
 
-                for (var i = 0; i < 1000 && raised == 0; ++i)
+                await ExecuteScrollerLayoutPass(root, scroller, target, (s, e) =>
                 {
-                    await RunOnUIThread.WaitForTick();
-                }
+                    Assert.AreEqual(new Rect(0, 10, 100, 100), e.EffectiveViewport);
+                    ++raised;
+                });
 
                 Assert.AreEqual(1, raised);
             });
@@ -217,92 +207,47 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = CreateRoot();
-                var target = new Canvas
-                {
-                    Width = 100,
-                    Height = 100,
-                };
-
-                var parent = new Border
-                {
-                    Width = 200,
-                    Height = 200,
-                    Child = target,
-                };
-
+                var root = CreateRoot();
+                var target = new Canvas { Width = 100, Height = 100 };
+                var parent = new Border { Width = 200, Height = 200, Child = target };
                 var raised = 0;
 
-                frame.Content = parent;
+                root.Content = parent;
 
-                // Wait for everything to be laid out initially.
-                await RunOnUIThread.WaitForTick();
+                await ExecuteInitialLayoutPass(root);
 
                 target.EffectiveViewportChanged += (s, e) =>
                 {
-                    if (e.EffectiveViewport == new Rect(-554, -400, 1200, 900))
-                    {
-                        ++raised;
-                    }
+                    Assert.AreEqual(new Rect(-554, -400, 1200, 900), e.EffectiveViewport);
+                    ++raised;
                 };
 
-                // Change the parent margin to move it.
                 parent.Margin = new Thickness(8, 0, 0, 0);
-
-                for (var i = 0; i < 100 && raised == 0; ++i)
-                {
-                    await RunOnUIThread.WaitForTick();
-                }
+                await ExecuteLayoutPass(root);
 
                 Assert.AreEqual(1, raised);
             });
         }
 
         [TestMethod]
-        public async Task Translate_Transforming_Affects_EffectiveViewport()
+        public async Task Translate_Transform_Doesnt_Affect_EffectiveViewport()
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = CreateRoot();
-                var target = new Canvas
-                {
-                    Width = 100,
-                    Height = 100,
-                };
-
-                var parent = new Border
-                {
-                    Width = 200,
-                    Height = 200,
-                    Child = target,
-                };
-
+                var root = CreateRoot();
+                var target = new Canvas { Width = 100, Height = 100 };
+                var parent = new Border { Width = 200, Height = 200, Child = target };
                 var raised = 0;
 
-                frame.Content = parent;
+                root.Content = parent;
 
-                // Wait for everything to be laid out initially.
-                await RunOnUIThread.WaitForTick();
-
-                target.EffectiveViewportChanged += (s, e) =>
-                {
-                    if (e.EffectiveViewport == new Rect(-558, -400, 1200, 900))
-                    {
-                        ++raised;
-                    }
-                };
-
-                // Change the parent render transform to move it. A layout is then needed before
-                // EffectiveViewportChanged is raised.
+                await ExecuteInitialLayoutPass(root);
+                target.EffectiveViewportChanged += (s, e) => ++raised;
                 target.RenderTransform = new TranslateTransform { X = 8 };
                 target.InvalidateMeasure();
+                await ExecuteLayoutPass(root);
 
-                for (var i = 0; i < 100 && raised == 0; ++i)
-                {
-                    await RunOnUIThread.WaitForTick();
-                }
-
-                Assert.AreEqual(1, raised);
+                Assert.AreEqual(0, raised);
             });
         }
 
@@ -311,50 +256,32 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = CreateRoot();
-                var target = new Canvas
-                {
-                    Width = 100,
-                    Height = 100,
-                };
-
-                var parent = new Border
-                {
-                    Width = 200,
-                    Height = 200,
-                    Child = target,
-                };
-
+                var root = CreateRoot();
+                var target = new Canvas { Width = 100, Height = 100 };
+                var parent = new Border { Width = 200, Height = 200, Child = target };
                 var raised = 0;
 
-                frame.Content = parent;
+                root.Content = parent;
 
-                // Wait for everything to be laid out initially.
-                await RunOnUIThread.WaitForTick();
+                await ExecuteInitialLayoutPass(root);
 
                 target.EffectiveViewportChanged += (s, e) =>
                 {
-                    if (e.EffectiveViewport == new Rect(-558, -400, 1200, 900))
-                    {
-                        ++raised;
-                    }
+                    Assert.AreEqual(new Rect(-558, -400, 1200, 900), e.EffectiveViewport);
+                    ++raised;
                 };
 
                 // Change the parent render transform to move it. A layout is then needed before
                 // EffectiveViewportChanged is raised.
                 parent.RenderTransform = new TranslateTransform { X = 8 };
                 parent.InvalidateMeasure();
-
-                for (var i = 0; i < 100 && raised == 0; ++i)
-                {
-                    await RunOnUIThread.WaitForTick();
-                }
+                await ExecuteLayoutPass(root);
 
                 Assert.AreEqual(1, raised);
             });
         }
 
-        private async Task ExecuteInitialLayoutPass(Frame root)
+        private async Task ExecuteLayoutPass(Frame root)
         {
             var tcs = new TaskCompletionSource<object>();
 
@@ -366,6 +293,50 @@ namespace EffectiveBoundsTestsUWP
 
             root.LayoutUpdated += LayoutUpdated;
             await tcs.Task;
+        }
+
+        private Task ExecuteInitialLayoutPass(Frame root) => ExecuteLayoutPass(root);
+
+        private async Task ExecuteScrollerLayoutPass(
+            Frame root,
+            ScrollViewer scroller,
+            FrameworkElement target,
+            Action<FrameworkElement, EffectiveViewportChangedEventArgs> handler)
+        {
+            var viewChangedRaised = false;
+            var viewportChangedRaised = 0;
+
+            void ViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
+            {
+                scroller.ViewChanged -= ViewChanged;
+                viewChangedRaised = !e.IsIntermediate;
+            }
+
+            void ViewportChanged(FrameworkElement sender, EffectiveViewportChangedEventArgs e)
+            {
+                if (viewChangedRaised)
+                {
+                    // We need to ignore the first EffectiveViewportChanged for some reason as it's
+                    // still not up-to-date.
+                    if (viewportChangedRaised++ > 0)
+                    {
+                        handler(sender, e);
+                    }
+                }
+            }
+
+            scroller.ViewChanged += ViewChanged;
+            target.EffectiveViewportChanged += ViewportChanged;
+
+            for (var i = 0; i < 50; ++i)
+            {
+                await ExecuteLayoutPass(root);
+
+                if (viewportChangedRaised > 1)
+                {
+                    break;
+                }
+            }
         }
 
         private Frame CreateRoot()
