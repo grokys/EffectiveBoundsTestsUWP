@@ -18,7 +18,7 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = GetFrame();
+                var root = CreateRoot();
                 var target = new Canvas();
                 var raised = 0;
 
@@ -27,7 +27,7 @@ namespace EffectiveBoundsTestsUWP
                     ++raised;
                 };
 
-                frame.Content = target;
+                root.Content = target;
 
                 Assert.AreEqual(0, raised);
             });
@@ -38,57 +38,34 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var tcs = new TaskCompletionSource<object>();
-                var frame = GetFrame();
+                var root = CreateRoot();
                 var target = new Canvas();
                 var raised = 0;
-
-                target.LayoutUpdated += (s, e) =>
-                {
-                    tcs.SetResult(null);
-                };
 
                 target.EffectiveViewportChanged += (s, e) =>
                 {
                     ++raised;
                 };
 
-                frame.Content = target;
+                root.Content = target;
 
-                await tcs.Task;
+                await ExecuteInitialLayoutPass(root);
+
                 Assert.AreEqual(1, raised);
             });
         }
-
 
         [TestMethod]
         public async Task Parent_Affects_EffectiveViewport()
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var tcs = new TaskCompletionSource<object>();
-                var frame = GetFrame();
-                var target = new Canvas
-                {
-                    Width = 100,
-                    Height = 100,
-                };
-
-                var parent = new Border
-                {
-                    Width = 200,
-                    Height = 200,
-                    Child = target,
-                };
-
+                var root = CreateRoot();
+                var target = new Canvas { Width = 100, Height = 100 };
+                var parent = new Border { Width = 200, Height = 200, Child = target };
                 var raised = 0;
 
-                frame.Content = parent;
-
-                target.LayoutUpdated += (s, e) =>
-                {
-                    tcs.SetResult(null);
-                };
+                root.Content = parent;
 
                 target.EffectiveViewportChanged += (s, e) =>
                 {
@@ -96,25 +73,25 @@ namespace EffectiveBoundsTestsUWP
                     ++raised;
                 };
 
-                await tcs.Task;
+                await ExecuteInitialLayoutPass(root);
             });
         }
 
         [TestMethod]
-        public async Task Invalidating_In_Handler_Causes_Layout_To_Be_Rerun_Before_LayoutUpdated()
+        public async Task Invalidating_In_Handler_Causes_Layout_To_Be_Rerun_Before_LayoutUpdated_Raised()
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = GetFrame();
+                var root = CreateRoot();
                 var target = new TestCanvas();
-                var tcs = new TaskCompletionSource<object>();
                 var raised = 0;
+                var layoutUpdatedRaised = 0;
 
-                target.LayoutUpdated += (s, e) =>
+                root.LayoutUpdated += (s, e) =>
                 {
                     Assert.AreEqual(2, target.MeasureCount);
                     Assert.AreEqual(2, target.ArrangeCount);
-                    tcs.SetResult(null);
+                    ++layoutUpdatedRaised;
                 };
 
                 target.EffectiveViewportChanged += (s, e) =>
@@ -123,10 +100,12 @@ namespace EffectiveBoundsTestsUWP
                     ++raised;
                 };
 
-                frame.Content = target;
+                root.Content = target;
 
-                await tcs.Task;
+                await ExecuteInitialLayoutPass(root);
+                
                 Assert.AreEqual(1, raised);
+                Assert.AreEqual(1, layoutUpdatedRaised);
             });
         }
 
@@ -135,19 +114,9 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = GetFrame();
-                var target = new Canvas
-                {
-                    Width = 52,
-                    Height = 52,
-                };
-                var tcs = new TaskCompletionSource<object>();
+                var root = CreateRoot();
+                var target = new Canvas { Width = 52, Height = 52, };
                 var raised = 0;
-
-                target.LayoutUpdated += (s, e) =>
-                {
-                    tcs.SetResult(null);
-                };
 
                 target.EffectiveViewportChanged += (s, e) =>
                 {
@@ -155,9 +124,9 @@ namespace EffectiveBoundsTestsUWP
                     ++raised;
                 };
 
-                frame.Content = target;
+                root.Content = target;
 
-                await tcs.Task;
+                await ExecuteInitialLayoutPass(root);
                 Assert.AreEqual(1, raised);
             });
         }
@@ -167,27 +136,10 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = GetFrame();
-                var target = new Canvas
-                {
-                    Width = 52,
-                    Height = 52,
-                };
-
-                var parent = new Border
-                {
-                    Width = 100,
-                    Height = 100,
-                    Child = target,
-                };
-
-                var tcs = new TaskCompletionSource<object>();
+                var root = CreateRoot();
+                var target = new Canvas { Width = 52, Height = 52 };
+                var parent = new Border { Width = 100, Height = 100, Child = target };
                 var raised = 0;
-
-                target.LayoutUpdated += (s, e) =>
-                {
-                    tcs.SetResult(null);
-                };
 
                 target.EffectiveViewportChanged += (s, e) =>
                 {
@@ -195,9 +147,9 @@ namespace EffectiveBoundsTestsUWP
                     ++raised;
                 };
 
-                frame.Content = parent;
+                root.Content = parent;
 
-                await tcs.Task;
+                await ExecuteInitialLayoutPass(root);
                 Assert.AreEqual(1, raised);
             });
         }
@@ -207,27 +159,10 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = GetFrame();
-                var target = new Canvas
-                {
-                    Width = 200,
-                    Height = 200,
-                };
-
-                var scroller = new ScrollViewer
-                {
-                    Width = 100,
-                    Height = 100,
-                    Content = target,
-                };
-
-                var tcs = new TaskCompletionSource<object>();
+                var root = CreateRoot();
+                var target = new Canvas { Width = 200, Height = 200 };
+                var scroller = new ScrollViewer { Width = 100, Height = 100, Content = target };
                 var raised = 0;
-
-                target.LayoutUpdated += (s, e) =>
-                {
-                    tcs.TrySetResult(null);
-                };
 
                 target.EffectiveViewportChanged += (s, e) =>
                 {
@@ -235,9 +170,9 @@ namespace EffectiveBoundsTestsUWP
                     ++raised;
                 };
 
-                frame.Content = scroller;
+                root.Content = scroller;
 
-                await tcs.Task;
+                await ExecuteInitialLayoutPass(root);
                 Assert.AreEqual(1, raised);
             });
         }
@@ -247,26 +182,15 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = GetFrame();
-                var target = new Canvas
-                {
-                    Width = 200,
-                    Height = 200,
-                };
-
-                var scroller = new ScrollViewer
-                {
-                    Width = 100,
-                    Height = 100,
-                    Content = target,
-                };
-
+                var root = CreateRoot();
+                var target = new Canvas { Width = 200, Height = 200 };
+                var scroller = new ScrollViewer { Width = 100, Height = 100, Content = target };
                 var raised = 0;
 
-                frame.Content = scroller;
+                root.Content = scroller;
 
                 // Wait for everything to be laid out initially.
-                await RunOnUIThread.WaitForTick();
+                await ExecuteInitialLayoutPass(root);
 
                 target.EffectiveViewportChanged += (s, e) =>
                 {
@@ -293,7 +217,7 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = GetFrame();
+                var frame = CreateRoot();
                 var target = new Canvas
                 {
                     Width = 100,
@@ -339,7 +263,7 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = GetFrame();
+                var frame = CreateRoot();
                 var target = new Canvas
                 {
                     Width = 100,
@@ -387,7 +311,7 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = GetFrame();
+                var frame = CreateRoot();
                 var target = new Canvas
                 {
                     Width = 100,
@@ -430,9 +354,24 @@ namespace EffectiveBoundsTestsUWP
             });
         }
 
-        private Frame GetFrame()
+        private async Task ExecuteInitialLayoutPass(Frame root)
         {
-            var result = Window.Current.Content as Frame;
+            var tcs = new TaskCompletionSource<object>();
+
+            void LayoutUpdated(object sender, object e)
+            {
+                tcs.SetResult(null);
+                root.LayoutUpdated -= LayoutUpdated;
+            }
+
+            root.LayoutUpdated += LayoutUpdated;
+            await tcs.Task;
+        }
+
+        private Frame CreateRoot()
+        {
+            var result = new Frame();
+            Window.Current.Content = result;
             result.UseLayoutRounding = false;
             return result;
         }
