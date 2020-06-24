@@ -10,7 +10,7 @@ using Windows.UI.Xaml.Controls;
 namespace EffectiveBoundsTestsUWP
 {
     [TestClass]
-    public class UnitTest1
+    public class EffectiveViewportChangedTests
     {
         [TestMethod]
         public async Task EffectiveViewportChanged_Not_Raised_When_Control_Added_To_Tree()
