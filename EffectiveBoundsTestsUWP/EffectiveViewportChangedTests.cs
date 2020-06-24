@@ -6,6 +6,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Windows.Foundation;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Media;
 
 namespace EffectiveBoundsTestsUWP
 {
@@ -18,15 +19,15 @@ namespace EffectiveBoundsTestsUWP
             await RunOnUIThread.Execute(async () =>
             {
                 var frame = GetFrame();
-                var canvas = new Canvas();
+                var target = new Canvas();
                 var raised = 0;
 
-                canvas.EffectiveViewportChanged += (s, e) =>
+                target.EffectiveViewportChanged += (s, e) =>
                 {
                     ++raised;
                 };
 
-                frame.Content = canvas;
+                frame.Content = target;
 
                 Assert.AreEqual(0, raised);
             });
@@ -37,25 +38,65 @@ namespace EffectiveBoundsTestsUWP
         {
             await RunOnUIThread.Execute(async () =>
             {
-                var frame = GetFrame();
-                var canvas = new Canvas();
                 var tcs = new TaskCompletionSource<object>();
+                var frame = GetFrame();
+                var target = new Canvas();
                 var raised = 0;
 
-                canvas.LayoutUpdated += (s, e) =>
+                target.LayoutUpdated += (s, e) =>
                 {
                     tcs.SetResult(null);
                 };
 
-                canvas.EffectiveViewportChanged += (s, e) =>
+                target.EffectiveViewportChanged += (s, e) =>
                 {
                     ++raised;
                 };
 
-                frame.Content = canvas;
+                frame.Content = target;
 
                 await tcs.Task;
                 Assert.AreEqual(1, raised);
+            });
+        }
+
+
+        [TestMethod]
+        public async Task Parent_Affects_EffectiveViewport()
+        {
+            await RunOnUIThread.Execute(async () =>
+            {
+                var tcs = new TaskCompletionSource<object>();
+                var frame = GetFrame();
+                var target = new Canvas
+                {
+                    Width = 100,
+                    Height = 100,
+                };
+
+                var parent = new Border
+                {
+                    Width = 200,
+                    Height = 200,
+                    Child = target,
+                };
+
+                var raised = 0;
+
+                frame.Content = parent;
+
+                target.LayoutUpdated += (s, e) =>
+                {
+                    tcs.SetResult(null);
+                };
+
+                target.EffectiveViewportChanged += (s, e) =>
+                {
+                    Assert.AreEqual(new Rect(-550, -400, 1200, 900), e.EffectiveViewport);
+                    ++raised;
+                };
+
+                await tcs.Task;
             });
         }
 
@@ -65,24 +106,24 @@ namespace EffectiveBoundsTestsUWP
             await RunOnUIThread.Execute(async () =>
             {
                 var frame = GetFrame();
-                var canvas = new TestCanvas();
+                var target = new TestCanvas();
                 var tcs = new TaskCompletionSource<object>();
                 var raised = 0;
 
-                canvas.LayoutUpdated += (s, e) =>
+                target.LayoutUpdated += (s, e) =>
                 {
-                    Assert.AreEqual(2, canvas.MeasureCount);
-                    Assert.AreEqual(2, canvas.ArrangeCount);
+                    Assert.AreEqual(2, target.MeasureCount);
+                    Assert.AreEqual(2, target.ArrangeCount);
                     tcs.SetResult(null);
                 };
 
-                canvas.EffectiveViewportChanged += (s, e) =>
+                target.EffectiveViewportChanged += (s, e) =>
                 {
-                    canvas.InvalidateMeasure();
+                    target.InvalidateMeasure();
                     ++raised;
                 };
 
-                frame.Content = canvas;
+                frame.Content = target;
 
                 await tcs.Task;
                 Assert.AreEqual(1, raised);
@@ -95,7 +136,7 @@ namespace EffectiveBoundsTestsUWP
             await RunOnUIThread.Execute(async () =>
             {
                 var frame = GetFrame();
-                var canvas = new Canvas
+                var target = new Canvas
                 {
                     Width = 52,
                     Height = 52,
@@ -103,18 +144,18 @@ namespace EffectiveBoundsTestsUWP
                 var tcs = new TaskCompletionSource<object>();
                 var raised = 0;
 
-                canvas.LayoutUpdated += (s, e) =>
+                target.LayoutUpdated += (s, e) =>
                 {
                     tcs.SetResult(null);
                 };
 
-                canvas.EffectiveViewportChanged += (s, e) =>
+                target.EffectiveViewportChanged += (s, e) =>
                 {
                     Assert.AreEqual(new Rect(-574, -424, 1200, 900), e.EffectiveViewport);
                     ++raised;
                 };
 
-                frame.Content = canvas;
+                frame.Content = target;
 
                 await tcs.Task;
                 Assert.AreEqual(1, raised);
@@ -127,34 +168,34 @@ namespace EffectiveBoundsTestsUWP
             await RunOnUIThread.Execute(async () =>
             {
                 var frame = GetFrame();
-                var canvas = new Canvas
+                var target = new Canvas
                 {
                     Width = 52,
                     Height = 52,
                 };
 
-                var outer = new Border
+                var parent = new Border
                 {
                     Width = 100,
                     Height = 100,
-                    Child = canvas,
+                    Child = target,
                 };
 
                 var tcs = new TaskCompletionSource<object>();
                 var raised = 0;
 
-                canvas.LayoutUpdated += (s, e) =>
+                target.LayoutUpdated += (s, e) =>
                 {
                     tcs.SetResult(null);
                 };
 
-                canvas.EffectiveViewportChanged += (s, e) =>
+                target.EffectiveViewportChanged += (s, e) =>
                 {
                     Assert.AreEqual(new Rect(-574, -424, 1200, 900), e.EffectiveViewport);
                     ++raised;
                 };
 
-                frame.Content = outer;
+                frame.Content = parent;
 
                 await tcs.Task;
                 Assert.AreEqual(1, raised);
@@ -167,34 +208,34 @@ namespace EffectiveBoundsTestsUWP
             await RunOnUIThread.Execute(async () =>
             {
                 var frame = GetFrame();
-                var canvas = new Canvas
+                var target = new Canvas
                 {
                     Width = 200,
                     Height = 200,
                 };
 
-                var outer = new ScrollViewer
+                var scroller = new ScrollViewer
                 {
                     Width = 100,
                     Height = 100,
-                    Content = canvas,
+                    Content = target,
                 };
 
                 var tcs = new TaskCompletionSource<object>();
                 var raised = 0;
 
-                canvas.LayoutUpdated += (s, e) =>
+                target.LayoutUpdated += (s, e) =>
                 {
                     tcs.TrySetResult(null);
                 };
 
-                canvas.EffectiveViewportChanged += (s, e) =>
+                target.EffectiveViewportChanged += (s, e) =>
                 {
                     Assert.AreEqual(new Rect(0, 0, 100, 100), e.EffectiveViewport);
                     ++raised;
                 };
 
-                frame.Content = outer;
+                frame.Content = scroller;
 
                 await tcs.Task;
                 Assert.AreEqual(1, raised);
@@ -207,27 +248,27 @@ namespace EffectiveBoundsTestsUWP
             await RunOnUIThread.Execute(async () =>
             {
                 var frame = GetFrame();
-                var canvas = new Canvas
+                var target = new Canvas
                 {
                     Width = 200,
                     Height = 200,
                 };
 
-                var outer = new ScrollViewer
+                var scroller = new ScrollViewer
                 {
                     Width = 100,
                     Height = 100,
-                    Content = canvas,
+                    Content = target,
                 };
 
                 var raised = 0;
 
-                frame.Content = outer;
+                frame.Content = scroller;
 
                 // Wait for everything to be laid out initially.
                 await RunOnUIThread.WaitForTick();
 
-                canvas.EffectiveViewportChanged += (s, e) =>
+                target.EffectiveViewportChanged += (s, e) =>
                 {
                     if (e.EffectiveViewport == new Rect(0, 10, 100, 100))
                     {
@@ -236,7 +277,7 @@ namespace EffectiveBoundsTestsUWP
                 };
 
                 // Scroll and wait a while for the UI to update.
-                outer.ChangeView(null, 10, null);
+                scroller.ChangeView(null, 10, null);
 
                 for (var i = 0; i < 1000 && raised == 0; ++i)
                 {
@@ -253,27 +294,27 @@ namespace EffectiveBoundsTestsUWP
             await RunOnUIThread.Execute(async () =>
             {
                 var frame = GetFrame();
-                var canvas = new Canvas
+                var target = new Canvas
                 {
                     Width = 100,
                     Height = 100,
                 };
 
-                var outer = new Border
+                var parent = new Border
                 {
                     Width = 200,
                     Height = 200,
-                    Child = canvas,
+                    Child = target,
                 };
 
                 var raised = 0;
 
-                frame.Content = outer;
+                frame.Content = parent;
 
                 // Wait for everything to be laid out initially.
                 await RunOnUIThread.WaitForTick();
 
-                canvas.EffectiveViewportChanged += (s, e) =>
+                target.EffectiveViewportChanged += (s, e) =>
                 {
                     if (e.EffectiveViewport == new Rect(-554, -400, 1200, 900))
                     {
@@ -282,9 +323,9 @@ namespace EffectiveBoundsTestsUWP
                 };
 
                 // Change the parent margin to move it.
-                outer.Margin = new Thickness(8, 0, 0, 0);
+                parent.Margin = new Thickness(8, 0, 0, 0);
 
-                for (var i = 0; i < 1000 && raised == 0; ++i)
+                for (var i = 0; i < 100 && raised == 0; ++i)
                 {
                     await RunOnUIThread.WaitForTick();
                 }
@@ -293,7 +334,108 @@ namespace EffectiveBoundsTestsUWP
             });
         }
 
-        private Frame GetFrame() => Window.Current.Content as Frame;
+        [TestMethod]
+        public async Task Translate_Transforming_Affects_EffectiveViewport()
+        {
+            await RunOnUIThread.Execute(async () =>
+            {
+                var frame = GetFrame();
+                var target = new Canvas
+                {
+                    Width = 100,
+                    Height = 100,
+                };
+
+                var parent = new Border
+                {
+                    Width = 200,
+                    Height = 200,
+                    Child = target,
+                };
+
+                var raised = 0;
+
+                frame.Content = parent;
+
+                // Wait for everything to be laid out initially.
+                await RunOnUIThread.WaitForTick();
+
+                target.EffectiveViewportChanged += (s, e) =>
+                {
+                    if (e.EffectiveViewport == new Rect(-558, -400, 1200, 900))
+                    {
+                        ++raised;
+                    }
+                };
+
+                // Change the parent render transform to move it. A layout is then needed before
+                // EffectiveViewportChanged is raised.
+                target.RenderTransform = new TranslateTransform { X = 8 };
+                target.InvalidateMeasure();
+
+                for (var i = 0; i < 100 && raised == 0; ++i)
+                {
+                    await RunOnUIThread.WaitForTick();
+                }
+
+                Assert.AreEqual(1, raised);
+            });
+        }
+
+        [TestMethod]
+        public async Task Translate_Transform_On_Parent_Affects_EffectiveViewport()
+        {
+            await RunOnUIThread.Execute(async () =>
+            {
+                var frame = GetFrame();
+                var target = new Canvas
+                {
+                    Width = 100,
+                    Height = 100,
+                };
+
+                var parent = new Border
+                {
+                    Width = 200,
+                    Height = 200,
+                    Child = target,
+                };
+
+                var raised = 0;
+
+                frame.Content = parent;
+
+                // Wait for everything to be laid out initially.
+                await RunOnUIThread.WaitForTick();
+
+                target.EffectiveViewportChanged += (s, e) =>
+                {
+                    if (e.EffectiveViewport == new Rect(-558, -400, 1200, 900))
+                    {
+                        ++raised;
+                    }
+                };
+
+                // Change the parent render transform to move it. A layout is then needed before
+                // EffectiveViewportChanged is raised.
+                parent.RenderTransform = new TranslateTransform { X = 8 };
+                parent.InvalidateMeasure();
+
+                for (var i = 0; i < 100 && raised == 0; ++i)
+                {
+                    await RunOnUIThread.WaitForTick();
+                }
+
+                Assert.AreEqual(1, raised);
+            });
+        }
+
+        private Frame GetFrame()
+        {
+            var result = Window.Current.Content as Frame;
+            result.UseLayoutRounding = false;
+            return result;
+        }
 
         private class TestCanvas : Canvas
         {
