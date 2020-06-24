@@ -1,5 +1,6 @@
 ﻿
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Windows.Foundation;
@@ -219,30 +220,75 @@ namespace EffectiveBoundsTestsUWP
                     Content = canvas,
                 };
 
-                var tcs = new TaskCompletionSource<object>();
                 var raised = 0;
 
-                canvas.LayoutUpdated += (s, e) =>
-                {
-                    if (raised > 0)
-                    {
-                        tcs.TrySetResult(null);
-                    }
-                };
+                frame.Content = outer;
+
+                // Wait for everything to be laid out initially.
+                await RunOnUIThread.WaitForTick();
 
                 canvas.EffectiveViewportChanged += (s, e) =>
                 {
-                    if (outer.VerticalOffset == 10)
+                    if (e.EffectiveViewport == new Rect(0, 10, 100, 100))
                     {
-                        Assert.AreEqual(new Rect(0, -10, 100, 100), e.EffectiveViewport);
                         ++raised;
                     }
                 };
 
-                frame.Content = outer;
+                // Scroll and wait a while for the UI to update.
                 outer.ChangeView(null, 10, null);
 
-                await tcs.Task;
+                for (var i = 0; i < 1000 && raised == 0; ++i)
+                {
+                    await RunOnUIThread.WaitForTick();
+                }
+
+                Assert.AreEqual(1, raised);
+            });
+        }
+
+        [TestMethod]
+        public async Task Moving_Parent_Updates_EffectiveViewport()
+        {
+            await RunOnUIThread.Execute(async () =>
+            {
+                var frame = GetFrame();
+                var canvas = new Canvas
+                {
+                    Width = 100,
+                    Height = 100,
+                };
+
+                var outer = new Border
+                {
+                    Width = 200,
+                    Height = 200,
+                    Child = canvas,
+                };
+
+                var raised = 0;
+
+                frame.Content = outer;
+
+                // Wait for everything to be laid out initially.
+                await RunOnUIThread.WaitForTick();
+
+                canvas.EffectiveViewportChanged += (s, e) =>
+                {
+                    if (e.EffectiveViewport == new Rect(-554, -400, 1200, 900))
+                    {
+                        ++raised;
+                    }
+                };
+
+                // Change the parent margin to move it.
+                outer.Margin = new Thickness(8, 0, 0, 0);
+
+                for (var i = 0; i < 1000 && raised == 0; ++i)
+                {
+                    await RunOnUIThread.WaitForTick();
+                }
+
                 Assert.AreEqual(1, raised);
             });
         }
