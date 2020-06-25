@@ -1,6 +1,5 @@
 ﻿
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Windows.Foundation;
@@ -10,6 +9,9 @@ using Windows.UI.Xaml.Media;
 
 namespace EffectiveBoundsTestsUWP
 {
+    // These tests are ported from https://github.com/grokys/EffectiveBoundsTestsUWP
+    // The weird boilerplate comes from the UWP tests, I tried to port them with the minimum changes
+    // possible.
     [TestClass]
     public class EffectiveViewportChangedTests
     {
@@ -281,6 +283,34 @@ namespace EffectiveBoundsTestsUWP
             });
         }
 
+        [TestMethod]
+        public async Task Rotate_Transform_On_Parent_Affects_EffectiveViewport()
+        {
+            await RunOnUIThread.Execute(async () =>
+            {
+                var root = CreateRoot();
+                var target = new Canvas { Width = 100, Height = 100 };
+                var parent = new Border { Width = 200, Height = 200, Child = target };
+                var raised = 0;
+
+                root.Content = parent;
+
+                await ExecuteInitialLayoutPass(root);
+
+                target.EffectiveViewportChanged += (s, e) =>
+                {
+                    AssertArePixelEqual(new Rect(-651, -792, 1484, 1484), e.EffectiveViewport);
+                    ++raised;
+                };
+
+                parent.RenderTransform = new RotateTransform { Angle = 45 };
+                parent.InvalidateMeasure();
+                await ExecuteLayoutPass(root);
+
+                Assert.AreEqual(1, raised);
+            });
+        }
+
         private async Task ExecuteLayoutPass(Frame root)
         {
             var tcs = new TaskCompletionSource<object>();
@@ -337,6 +367,13 @@ namespace EffectiveBoundsTestsUWP
                     break;
                 }
             }
+        }
+
+        private void AssertArePixelEqual(Rect expected, Rect actual)
+        {
+            var expectedRounded = new Rect((int)expected.X, (int)expected.Y, (int)expected.Width, (int)expected.Height);
+            var actualRounded = new Rect((int)actual.X, (int)actual.Y, (int)actual.Width, (int)actual.Height);
+            Assert.AreEqual(expectedRounded, actualRounded);
         }
 
         private Frame CreateRoot()
