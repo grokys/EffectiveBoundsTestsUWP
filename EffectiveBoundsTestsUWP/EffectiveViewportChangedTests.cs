@@ -16,9 +16,11 @@ namespace EffectiveBoundsTestsUWP
     public class EffectiveViewportChangedTests
     {
         [TestMethod]
-        public async Task EffectiveViewportChanged_Not_Raised_When_Control_Added_To_Tree()
+        public async Task EffectiveViewportChanged_Not_Raised_When_Control_Added_To_Tree_And_Layout_Pass_Has_Not_Run()
         {
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
             await RunOnUIThread.Execute(async () =>
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
             {
                 var root = CreateRoot();
                 var target = new Canvas();
@@ -32,6 +34,60 @@ namespace EffectiveBoundsTestsUWP
                 root.Content = target;
 
                 Assert.AreEqual(0, raised);
+            });
+        }
+
+        [TestMethod]
+        public async Task EffectiveViewportChanged_Raised_When_Control_Added_To_Tree_And_Layout_Pass_Has_Run()
+        {
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+            await RunOnUIThread.Execute(async () =>
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+            {
+                var root = CreateRoot();
+                var target = new Canvas();
+                var raised = 0;
+
+                target.EffectiveViewportChanged += (s, e) =>
+                {
+                    ++raised;
+                };
+
+                root.Content = target;
+
+                Assert.AreEqual(0, raised);
+
+                await ExecuteInitialLayoutPass(root);
+
+                Assert.AreEqual(1, raised);
+            });
+        }
+
+        [TestMethod]
+        public async Task EffectiveViewportChanged_Raised_When_Root_LayedOut_And_Then_Control_Added_To_Tree_And_Layout_Pass_Runs()
+        {
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+            await RunOnUIThread.Execute(async () =>
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+            {
+                var root = CreateRoot();
+                var target = new Canvas();
+                var raised = 0;
+
+                target.EffectiveViewportChanged += (s, e) =>
+                {
+                    ++raised;
+                };
+
+                await ExecuteInitialLayoutPass(root);
+
+                root.Content = target;
+
+                Assert.AreEqual(0, raised);
+
+                await ExecuteInitialLayoutPass(root);
+
+                Assert.AreEqual(1, raised);
             });
         }
 
